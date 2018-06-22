@@ -80,6 +80,8 @@ build_script:
      if ($env:release) {
       $sconsOutTargets += " changes userGuide developerGuide client"
       $sconsArgs += " release=1"
+     } else {
+      $sconsArgs += " nvdaHelperLogLevel=10"
      }
      if ($env:versionType) {
       $sconsArgs += " updateVersionType=$env:versionType"
