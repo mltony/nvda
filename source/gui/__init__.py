@@ -20,6 +20,7 @@ import ui
 from logHandler import log
 import config
 import versionInfo
+import addonAPIVersion
 import speech
 import queueHandler
 import core
@@ -214,7 +215,7 @@ class MainFrame(wx.Frame):
 	def onExecuteUpdateCommand(self, evt):
 		if updateCheck and updateCheck.isPendingUpdate():
 			updateTuple = updateCheck.getPendingUpdate()
-			newNVDAVersionTuple = versionInfo.getNVDAVersionTupleFromString(updateTuple[1])
+			newNVDAVersionTuple = addonAPIVersion.getAPIVersionTupleFromString(updateTuple[1])
 			from addonHandler import getAddonsWithoutKnownCompatibility
 			if any(getAddonsWithoutKnownCompatibility(newNVDAVersionTuple)):
 				confirmUpdateDialog = updateCheck.UpdateAskInstallDialog(gui.mainFrame, updateTuple[0], updateTuple[1])
@@ -861,7 +862,7 @@ class ExitDialog(wx.Dialog):
 		elif action == 4:
 			if updateCheck:
 				updateTuple = updateCheck.getPendingUpdate()
-				newNVDAVersionTuple = versionInfo.getNVDAVersionTupleFromString(updateTuple[1])
+				newNVDAVersionTuple = addonAPIVersion.getAPIVersionTupleFromString(updateTuple[1])
 				from addonHandler import getAddonsWithoutKnownCompatibility
 				if any(getAddonsWithoutKnownCompatibility(newNVDAVersionTuple)):
 					confirmUpdateDialog = updateCheck.UpdateAskInstallDialog(gui.mainFrame, updateTuple[0], updateTuple[1])
