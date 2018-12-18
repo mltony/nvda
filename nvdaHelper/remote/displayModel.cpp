@@ -45,6 +45,7 @@ void displayModelChunk_t::generateXML(wstring& text) {
 }
 
 void displayModelChunk_t::truncate(int truncatePointX, BOOL truncateBefore) {
+	LOG_DEBUG(L"truncating instance at "<<this<<L" with text "<<text<<L" at truncate point "<<truncatePointX);
 	if(text.length()==0) return;
 	nhAssert(characterXArray.size()!=0);
 	deque<long>::iterator c=characterXArray.begin();
@@ -64,6 +65,7 @@ void displayModelChunk_t::truncate(int truncatePointX, BOOL truncateBefore) {
 		characterXArray.erase(c,characterXArray.end());
 		text.erase(t,text.end());
 	}
+	LOG_DEBUG(L"text after truncating "<<text);
 }
 
 displayModel_t::displayModel_t(HWND w): LockableAutoFreeObject(), chunksByYX(), hwnd(w), focusRect(NULL)  {
@@ -71,10 +73,11 @@ displayModel_t::displayModel_t(HWND w): LockableAutoFreeObject(), chunksByYX(), 
 }
 
 displayModel_t::~displayModel_t() {
-	LOG_DEBUG(L"destroying instance at "<<this);
+	LOG_DEBUG(L"destroying model instance at "<<this);
 	for(displayModelChunksByPointMap_t::iterator i=chunksByYX.begin();i!=chunksByYX.end();) {
-		LOG_DEBUG(L"deleting chunk at "<<i->second);
-		delete i->second;
+		displayModelChunk_t* chunk=i->second;
+		LOG_DEBUG(L"deleting chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
+		delete chunk;
 		chunksByYX.erase(i++);
 	}
 	setFocusRect(NULL);
@@ -132,15 +135,18 @@ bool displayModel_t::getFocusRect(RECT* rect) {
 }
 
 void displayModel_t::clearAll() {
+	LOG_DEBUG(L"clearing all in instance at "<<this);
 	for(displayModelChunksByPointMap_t::iterator i=chunksByYX.begin();i!=chunksByYX.end();) {
-		delete i->second;
+		displayModelChunk_t* chunk=i->second;
+		LOG_DEBUG(L"deleting chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
+		delete chunk;
 		chunksByYX.erase(i++);
 	}
 	setFocusRect(NULL);
 }
 
 void displayModel_t::clearRectangle(const RECT& rect, BOOL clearForText) {
-	LOG_DEBUG(L"Clearing rectangle from "<<rect.left<<L","<<rect.top<<L" to "<<rect.right<<L","<<rect.bottom);
+	LOG_DEBUG(L"clearing rectangle from "<<rect.left<<L","<<rect.top<<L" to "<<rect.right<<L","<<rect.bottom);
 	set<displayModelChunk_t*> chunksForInsertion;
 	displayModelChunksByPointMap_t::iterator i=chunksByYX.begin();
 	RECT tempRect;
@@ -154,51 +160,63 @@ void displayModel_t::clearRectangle(const RECT& rect, BOOL clearForText) {
 		displayModelChunk_t* chunk=i->second;
 		int baseline=i->first.first;
 		if(IntersectRect(&tempRect,&rect,&(chunk->rect))) {
-			//The clearing rectangle intercects the chunk's rectangle in some way.
+			LOG_DEBUG(L"clearing rectangle intercects the chunk's rectangle");
 			if(tempRect.bottom<=baseline) {
-				//The clearing rectangle some how covers the chunk below its baseline.
+				LOG_DEBUG(L"clearing rectangle some how covers the chunk below its baseline");
 				//If we're clearing to make room for text, or the clearing rectangle starts from the very top of the chunk
 				//Then we should shrink the chunk down so it stays below the clearing rectangle.
 				//If not, then we pretend the clearRectangle did not happen (the chunk was only parcially cleared vertically so we don't care).
 				if(clearForText||tempRect.top==chunk->rect.top) {
+					LOG_DEBUG(L"clearing to make room for text or clearing rectangle starts from top of chunk");
 					chunk->rect.top=tempRect.bottom;
 				}
 			} else if(tempRect.top>baseline) {
-				//The clearing rectangle some how covers the chunk above its baseline.
+				LOG_DEBUG(L"clearing rectangle some how covers the chunk above its baseline");
 				//If we're clearing to make room for text, or the clearing rectangle starts from the very bottom of the chunk
 				//Then we should shrink the chunk up so it stays above the clearing rectangle.
 				//If not, then we pretend the clearRectangle did not happen (the chunk was only parcially cleared vertically so we don't care).
 				if(clearForText||tempRect.bottom==chunk->rect.bottom) {
+					LOG_DEBUG(L"clearing to make room for text or clearing rectangle starts from bottom of chunk");
 					chunk->rect.bottom=tempRect.top;
 				}
 			} else {
-				//The clearing rectangle covers the chunk's baseline, so remove the part of the chunk covered horozontally by the clearing rectangle.
+				LOG_DEBUG(L"clearing rectangle covers chunk's baseline");
+				//Remove the part of the chunk covered horizontally by the clearing rectangle.
 				if(tempRect.left==chunk->rect.left&&tempRect.right==chunk->rect.right) {
 					chunksByYX.erase(i);
+					LOG_DEBUG(L"deleting chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
 					delete chunk;
 				} else if(tempRect.left>chunk->rect.left&&tempRect.right==chunk->rect.right) {
 					chunk->truncate(tempRect.left,FALSE);
 					if(chunk->text.length()==0) {
 						chunksByYX.erase(i);
+						LOG_DEBUG(L"deleting chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
 						delete chunk;
+					} else{
+						LOG_DEBUG(L"truncated chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
 					}
 				} else if(tempRect.right<chunk->rect.right&&tempRect.left==chunk->rect.left) {
 					chunksByYX.erase(i);
 					chunk->truncate(tempRect.right,TRUE);
 					if(chunk->text.length()==0) {
+						LOG_DEBUG(L"deleting chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
 						delete chunk;
 					} else {
+						LOG_DEBUG(L"truncated chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
 						chunksForInsertion.insert(chunk);
 					}
 				} else {
 					displayModelChunk_t* newChunk=new displayModelChunk_t(*chunk);
+					LOG_DEBUG(L"created new chunk at "<<newChunk);
 					chunk->truncate(tempRect.left,FALSE);
 					if(chunk->text.length()==0) {
 						chunksByYX.erase(i);
+						LOG_DEBUG(L"deleting chunk at "<<chunk<<L" with rectangle from "<<chunk->rect.left<<L","<<chunk->rect.top<<L" to "<<chunk->rect.right<<L","<<chunk->rect.bottom<<L" with text of "<<chunk->text);
 						delete chunk;
 					}
 					newChunk->truncate(tempRect.right,TRUE);
 					if(newChunk->text.length()==0) {
+						LOG_DEBUG(L"deleting newChunk at "<<newChunk<<L" with rectangle from "<<newChunk->rect.left<<L","<<newChunk->rect.top<<L" to "<<newChunk->rect.right<<L","<<newChunk->rect.bottom<<L" with text of "<<newChunk->text);
 						delete newChunk;
 					} else {
 						chunksForInsertion.insert(newChunk);
@@ -211,12 +229,18 @@ void displayModel_t::clearRectangle(const RECT& rect, BOOL clearForText) {
 	for(set<displayModelChunk_t*>::iterator i=chunksForInsertion.begin();i!=chunksForInsertion.end();++i) {
 		insertChunk(*i);
 	}
-	LOG_DEBUG(L"complete");
+	LOG_DEBUG(L"clearing rectangle complete");
 }
 
 void displayModel_t::copyRectangle(const RECT& srcRect, BOOL removeFromSource, BOOL opaqueCopy, BOOL srcInvert, const RECT& destRect, const RECT* destClippingRect, displayModel_t* destModel) {
+	LOG_DEBUG(L"copying source rectangle for model instance at "<<this);
+	LOG_DEBUG(L"source rectangle from "<<srcRect.left<<L","<<srcRect.top<<L" to "<<srcRect.right<<L","<<srcRect.bottom);
+	LOG_DEBUG(L"destination rectangle from "<<destRect.left<<L","<<destRect.top<<L" to "<<destRect.right<<L","<<destRect.bottom);
 	//Make sure neither source or destination rectangle is collapsed. Pointless and can cause zero division errors. #2885 
-	if(srcRect.left==srcRect.right||srcRect.top==srcRect.bottom||destRect.left==destRect.right||destRect.top==destRect.bottom) return;
+	if(srcRect.left==srcRect.right||srcRect.top==srcRect.bottom||destRect.left==destRect.right||destRect.top==destRect.bottom) {
+		LOG_DEBUG(L"source or destination rectangle is collapsed");
+		return;
+	}
 	if(!destModel) destModel=this;
 	RECT tempRect;
 	float scaleX=(float)(destRect.right-destRect.left)/(float)(srcRect.right-srcRect.left);
@@ -224,26 +248,35 @@ void displayModel_t::copyRectangle(const RECT& srcRect, BOOL removeFromSource, B
 	//If a clipping rectangle is provided, clip the destination rectangle
 	RECT clippedDestRect=destRect;
 	if(destClippingRect) {
+		LOG_DEBUG(L"clipping rectangle from "<<destClippingRect->left<<L","<<destClippingRect->top<<L" to "<<destClippingRect->right<<L","<<destClippingRect->bottom);
 		IntersectRect(&clippedDestRect,&destRect,destClippingRect);
+		LOG_DEBUG(L"clipped destination rectangle from "<<clippedDestRect.left<<L","<<clippedDestRect.top<<L" to "<<clippedDestRect.right<<L","<<clippedDestRect.bottom);
 	}
 	//Make copies of all the needed chunks, tweek their rectangle coordinates, truncate if needed, and store them in a temporary list
 	list<displayModelChunk_t*> copiedChunks;
+	LOG_DEBUG(L"making copies of all needed chunks");
 	for(displayModelChunksByPointMap_t::iterator i=chunksByYX.begin();i!=chunksByYX.end();++i) {
+		displayModelChunk_t* oldChunk = i->second;
 		//We only care about chunks that are overlapped by the source rectangle 
-		if(!IntersectRect(&tempRect,&srcRect,&(i->second->rect))) continue; 
+		if(!IntersectRect(&tempRect,&srcRect,&(oldChunk->rect))) {
+			LOG_DEBUG(L"oldChunk at "<<oldChunk<<L" not within source rectangle");
+			continue; 
+		}
 		//Copy the chunk
 		displayModelChunk_t* chunk=new displayModelChunk_t(*(i->second));
 		if(srcInvert) {
+			LOG_DEBUG(L"inverting colors of chunk");
 			chunk->formatInfo.color=(0xffffff-chunk->formatInfo.color);
 			chunk->formatInfo.backgroundColor=(0xffffff-chunk->formatInfo.backgroundColor);
 		}
-		//Tweek its rectangle coordinates to match where its going in the destination model
+		LOG_DEBUG(L"tweaking coordinates of instance at "<<this);
+		//Tweak its rectangle coordinates to match where its going in the destination model
 		transposAndScaleCoordinate(srcRect.left,destRect.left,scaleX,chunk->rect.left);
 		transposAndScaleCoordinate(srcRect.left,destRect.left,scaleX,chunk->rect.right);
 		transposAndScaleCoordinate(srcRect.top,destRect.top,scaleY,chunk->rect.top);
 		transposAndScaleCoordinate(srcRect.top,destRect.top,scaleY,chunk->rect.bottom);
 		transposAndScaleCoordinate(srcRect.top,destRect.top,scaleY,chunk->baseline);
-		//Tweek its character x coordinates to match where its going in the destination model
+		//Tweak its character x coordinates to match where its going in the destination model
 		for(deque<long>::iterator x=chunk->characterXArray.begin();x!=chunk->characterXArray.end();++x) transposAndScaleCoordinate(srcRect.left,destRect.left,scaleX,*x);
 		//Truncate the chunk so it does not stick outside of the clipped destination rectangle
 		if(chunk->rect.left<clippedDestRect.left) {
