@@ -48,7 +48,7 @@ version_minor=0
 version_build=0
 version=formatDevVersionString()
 publisher="unknown"
-updateVersionType=None
+updateVersionType="alpha"
 try:
 	from _buildVersion import version, publisher, updateVersionType, version_build
 except ImportError:

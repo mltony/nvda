@@ -44,6 +44,7 @@ class myDialog(class wx.Dialog):
 """
 import wx
 from wx.lib import scrolledpanel
+from abc import ABCMeta
 
 #: border space to be used around all controls in dialogs
 BORDER_FOR_DIALOGS=10
@@ -83,6 +84,16 @@ class ButtonHelper(object):
 		"""
 		return self._sizer
 
+	def addPreMadeButton(self, wxButtonInstance):
+		"""Add a new button instance to the group with the appropriate spacing.
+			This allows more control over how the button is created.
+		"""
+		if not self._firstButton:
+			self._sizer.AddSpacer(self._space)
+		self._sizer.Add(wxButtonInstance)
+		self._firstButton = False
+		return wxButtonInstance
+
 	def addButton(self, *args, **kwargs):
 		""" add another button to the group. Space between the buttons is added automatically.
 			usage hint: 
@@ -92,11 +103,7 @@ class ButtonHelper(object):
 			@param kwargs: The keyword args passed directly to wx.Button
 		"""
 		wxButton = wx.Button(*args, **kwargs)
-		if not self._firstButton:
-			self._sizer.AddSpacer(self._space)
-		self._sizer.Add(wxButton)
-		self._firstButton = False
-		return wxButton
+		return self.addPreMadeButton(wxButton)
 
 def associateElements( firstElement, secondElement):
 	""" Associates two GUI elements together. Handles choosing a layout and appropriate spacing. Abstracts away common
@@ -300,4 +307,8 @@ class BoxSizerHelper(object):
 		self.addItem(toAdd, flag=wx.ALIGN_RIGHT)
 		self.dialogDismissButtonsAdded = True
 		return buttons
+
+class SIPABCMeta(wx.siplib.wrappertype, ABCMeta):
+	"""Meta class to be used for wx subclasses with abstract methods."""
+	pass
 

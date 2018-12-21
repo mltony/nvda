@@ -88,6 +88,8 @@ class TestAddonVersionCheck(unittest.TestCase):
 		self.assertFalse(addonVersionCheck.isAddonCompatible(addon, nvda_current, nvda_backwardsCompatTo))
 
 
+class TestGetAPIVersionTupleFromString(unittest.TestCase):
+
 	def test_getAPIVersionTupleFromString_succeeds(self):
 		"""Tests trying to get the API version tuple from an API version string with one matching group
 		results in an error being raised
@@ -136,3 +138,4 @@ class TestAddonVersionCheck(unittest.TestCase):
 		and some extra prepended results in an error being raised
 		"""
 		self.assertRaises(ValueError, addonAPIVersion.getAPIVersionTupleFromString, "dev2019.1.0")
+

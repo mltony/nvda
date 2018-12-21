@@ -54,13 +54,16 @@ _lastDuckedTime=0
 def _setDuckingState(switch):
 	global _lastDuckedTime
 	with _duckingRefCountLock:
-		import gui
-		ATWindow=gui.mainFrame.GetHandle()
-		if switch:
-			oledll.oleacc.AccSetRunningUtilityState(ATWindow,ANRUS_ducking_AUDIO_ACTIVE|ANRUS_ducking_AUDIO_ACTIVE_NODUCK,ANRUS_ducking_AUDIO_ACTIVE|ANRUS_ducking_AUDIO_ACTIVE_NODUCK)
-			_lastDuckedTime=time.time()
-		else:
-			oledll.oleacc.AccSetRunningUtilityState(ATWindow,ANRUS_ducking_AUDIO_ACTIVE|ANRUS_ducking_AUDIO_ACTIVE_NODUCK,ANRUS_ducking_AUDIO_ACTIVE_NODUCK)
+		try:
+			import gui
+			ATWindow=gui.mainFrame.GetHandle()
+			if switch:
+				oledll.oleacc.AccSetRunningUtilityState(ATWindow,ANRUS_ducking_AUDIO_ACTIVE|ANRUS_ducking_AUDIO_ACTIVE_NODUCK,ANRUS_ducking_AUDIO_ACTIVE|ANRUS_ducking_AUDIO_ACTIVE_NODUCK)
+				_lastDuckedTime=time.time()
+			else:
+				oledll.oleacc.AccSetRunningUtilityState(ATWindow,ANRUS_ducking_AUDIO_ACTIVE|ANRUS_ducking_AUDIO_ACTIVE_NODUCK,ANRUS_ducking_AUDIO_ACTIVE_NODUCK)
+		except:
+			log.debugWarning("Unable to set ducking state.", exc_info=True)
 
 def _ensureDucked():
 	global _duckingRefCount
