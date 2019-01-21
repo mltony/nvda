@@ -250,6 +250,13 @@ class TextInfoQuickNavItem(QuickNavItem):
 			label = content
 		return label
 
+def getObjectID(obj):
+	try:
+		return obj.IA2UniqueID
+	except AttributeError:
+		# What unique ID should we use for UIA objects?
+		return obj.role
+
 class BrowseModeTreeInterceptor(treeInterceptorHandler.TreeInterceptor):
 	scriptCategory = inputCore.SCRCAT_BROWSEMODE
 	disableAutoPassThrough = False
@@ -501,18 +508,20 @@ class BrowseModeTreeInterceptor(treeInterceptorHandler.TreeInterceptor):
 		if obj!=self.rootNVDAObject and self._shouldSetFocusToObj(obj) and obj!= api.getFocusObject():
 			setFocusCall = True
 			synchronousCall = False
+		if obj.hasFocus:
+			synchronousCall = True
+
+		if not synchronousCall:
+			uid = getObjectID(obj)
+			if uid in self.postFocusFuncDict:
+				log.error("postFocusFunc has not been called asynchronously")
+			if postFocusFunc is not None:
+				self.postFocusFuncDict[uid] = postFocusFunc
+		if setFocusCall:
+			obj.setFocus()
 		if synchronousCall:
-			if setFocusCall:
-				obj.setFocus()
 			if postFocusFunc is not None:
 				postFocusFunc()
-		else:
-			if self.postFocusFunc is not None:
-				log.error("postFocusFunc has not been called asynchronously")
-			self.postFocusFunc = postFocusFunc
-			if setFocusCall:
-				obj.setFocus()
-
 
 	def maybeSyncFocusAndPassThrough(self, gesture=None): 		
 		self.maybeSyncFocus()
@@ -1175,7 +1184,7 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 		self._lastCaretPosition = None
 		#: True if the last caret move was due to a focus change.
 		self._lastCaretMoveWasFocus = False
-		self.postFocusFunc  = None
+		self.postFocusFuncDict = {}
 
 	def terminate(self):
 		if self.shouldRememberCaretPositionAcrossLoads and self._lastCaretPosition:
@@ -1184,6 +1193,8 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 			except AttributeError:
 				# The app module died.
 				pass
+		if len(self.postFocusFuncDict) > 0:
+			log.error("Some asynchronous gainFocus events in this treeInterceptor weren't handled.")
 
 	def _get_currentNVDAObject(self):
 		return self.makeTextInfo(textInfos.POSITION_CARET).NVDAObjectAtStart
@@ -1275,7 +1286,7 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 		if reason == controlTypes.REASON_FOCUS:
 			self._lastCaretMoveWasFocus = True
 			focusObj = api.getFocusObject()
-			self._lastFocusableObject = None
+			self._lastFocusableObject = info.focusableNVDAObjectAtStart
 			if focusObj==self.rootNVDAObject:
 				return
 		else:
@@ -1285,15 +1296,17 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 			if not obj:
 				log.debugWarning("Invalid NVDAObjectAtStart")
 				return
-			if obj==self.rootNVDAObject:
-				return
 			followBrowseModeFocus= config.conf["virtualBuffers"]["focusFollowsBrowse"]
 			if followBrowseModeFocus:
+				if obj==self.rootNVDAObject:
+					return
 				if focusObj and not eventHandler.isPendingEvents("gainFocus") and focusObj!=self.rootNVDAObject and focusObj != api.getFocusObject() and self._shouldSetFocusToObj(focusObj):
 					focusObj.setFocus()
-				obj.scrollIntoView()
 			else:
 				self._lastFocusableObject = focusObj
+				if obj==self.rootNVDAObject:
+					return
+			obj.scrollIntoView()
 			if self.programmaticScrollMayFireEvent:
 				self._lastProgrammaticScrollTime = time.time()
 		self.passThrough=self.shouldPassThrough(focusObj,reason=reason)
@@ -1531,10 +1544,11 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 				# This focus change was caused by a virtual caret movement, so don't speak the focused node to avoid double speaking.
 				# However, we still want to update the speech property cache so that property changes will be spoken properly.
 				speech.speakObject(obj,controlTypes.REASON_ONLYCACHE)
-				postFocusFunc = self.postFocusFunc
-				self.postFocusFunc = None
-				if postFocusFunc is not None: 
-					queueHandler.queueFunction(queueHandler.eventQueue, postFocusFunc)
+				uid = getObjectID(obj)
+				try:
+					queueHandler.queueFunction(queueHandler.eventQueue, self.postFocusFuncDict.pop(uid))
+				except KeyError:
+					pass
 			else:
 				self._replayFocusEnteredEvents()
 				return nextHandler()
