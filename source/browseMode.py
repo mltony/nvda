@@ -1274,18 +1274,20 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 		if reason == controlTypes.REASON_FOCUS:
 			self._lastCaretMoveWasFocus = True
 			focusObj = api.getFocusObject()
+			self.passThrough=self.shouldPassThrough(focusObj,reason=reason)
 			self._lastFocusableObject = info.focusableNVDAObjectAtStart
 			if focusObj==self.rootNVDAObject:
 				return
 		else:
 			self._lastCaretMoveWasFocus = False
 			focusObj=info.focusableNVDAObjectAtStart
+			self.passThrough=self.shouldPassThrough(focusObj,reason=reason)
 			obj=info.NVDAObjectAtStart
 			if not obj:
 				log.debugWarning("Invalid NVDAObjectAtStart")
 				return
 			followBrowseModeFocus= config.conf["virtualBuffers"]["focusFollowsBrowse"]
-			if followBrowseModeFocus:
+			if followBrowseModeFocus or self.passThrough:
 				if obj==self.rootNVDAObject:
 					return
 				if focusObj and not eventHandler.isPendingEvents("gainFocus") and focusObj!=self.rootNVDAObject and focusObj != api.getFocusObject() and self._shouldSetFocusToObj(focusObj):
@@ -1297,7 +1299,6 @@ class BrowseModeDocumentTreeInterceptor(documentBase.DocumentWithTableNavigation
 			obj.scrollIntoView()
 			if self.programmaticScrollMayFireEvent:
 				self._lastProgrammaticScrollTime = time.time()
-		self.passThrough=self.shouldPassThrough(focusObj,reason=reason)
 		# Queue the reporting of pass through mode so that it will be spoken after the actual content.
 		queueHandler.queueFunction(queueHandler.eventQueue, reportPassThrough, self)
 
