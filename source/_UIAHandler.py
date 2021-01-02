@@ -33,6 +33,8 @@ from typing import Dict
 from queue import Queue
 import aria
 
+UIA_HasKeyboardFocusPropertyId = 30008
+
 #Some newer UIA constants that could be missing
 ItemIndex_Property_GUID=GUID("{92A053DA-2969-4021-BF27-514CFC2E4A69}")
 ItemCount_Property_GUID=GUID("{ABBF5C45-5CCC-47b7-BB4E-87CB87BBD162}")
@@ -474,6 +476,31 @@ class UIAHandler(COMObject):
 					exc_info=True
 				)
 			return
+		if obj is not None and NVDAEventName!="gainFocus":
+				log.debug(
+					"asdf: "
+					f"{NVDAEventName} event!")
+		if obj is not None and NVDAEventName=="gainFocus":
+				pass
+				log.debug(
+					"asdf: "
+					f"gainFocus event!")
+				log.debug(
+					"asdf: "
+					f"eventID={eventID} UIA_MenuOpenedEventId={UIA_MenuOpenedEventId}")
+				log.debug(
+					"asdf: "
+					f"gainFocus on {controlTypes.roleLabels[obj.role]} {obj.basicText} shouldAllow={obj.shouldAllowUIAFocusEvent}")
+				try:
+					kf = bool(obj._getUIACacheablePropertyValue(UIA_HasKeyboardFocusPropertyId))
+					log.debug(
+						"asdf: "
+						f"kf={kf}")
+				except:
+					log.error("Exception while computing kf", exc_info=True)
+				"""
+				"""
+			
 		if (
 			not obj
 			or (NVDAEventName=="gainFocus" and not obj.shouldAllowUIAFocusEvent)
@@ -538,6 +565,26 @@ class UIAHandler(COMObject):
 					exc_info=True
 				)
 			return
+		if True:
+			if _isDebug():
+				log.debug(
+					f"asdf: obj={obj} sender={sender} obj.shouldAllowUIAFocusEvent={obj.shouldAllowUIAFocusEvent}"
+				)
+		if obj is not None:
+				log.debug(
+					"asdf: "
+					f"FocusChangedEvent event!")
+				log.debug(
+					"asdf: "
+					f"FocusChangedEvent on {controlTypes.roleLabels[obj.role]} {obj.basicText} shouldAllow={obj.shouldAllowUIAFocusEvent}")
+				try:
+					kf = bool(obj._getUIACacheablePropertyValue(UIA_HasKeyboardFocusPropertyId))
+					log.debug(
+						"asdf: "
+						f"kf={kf}")
+				except:
+					log.error("Exception while computing kf", exc_info=True)
+			
 		if not obj or not obj.shouldAllowUIAFocusEvent:
 			if _isDebug():
 				log.debug(

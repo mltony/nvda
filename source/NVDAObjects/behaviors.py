@@ -192,8 +192,11 @@ class EditableTextWithAutoSelectDetection(EditableText):
 		super().event_loseFocus()
 
 	def event_caret(self):
+		import tones
+		#tones.beep(500, 50)
 		super(EditableText, self).event_caret()
 		if self is api.getFocusObject() and not eventHandler.isPendingEvents('gainFocus'):
+			tones.beep(500, 50)
 			self.detectPossibleSelectionChange()
 
 	def event_textChange(self):
