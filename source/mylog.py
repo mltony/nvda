@@ -1,3 +1,4 @@
+import threading
 debug = True
 if debug:
     f = open("C:\\Users\\tony\\Dropbox\\1.txt", "w")
