@@ -10,6 +10,7 @@ from ctypes import *
 from ctypes.wintypes import *
 import watchdog
 import winUser
+import mylog
 
 # Some Windows constants
 HC_ACTION = 0
@@ -47,6 +48,13 @@ def keyboardHook(code,wParam,lParam):
 	if code != HC_ACTION:
 		return windll.user32.CallNextHookEx(0,code,wParam,lParam)
 	kbd=KBDLLHOOKSTRUCT.from_address(lParam)
+	flagUp = bool(kbd.flags&LLKHF_UP)
+	flagExtended = bool(kbd.flags&LLKHF_EXTENDED)
+	flagInjected = bool(kbd.flags&LLKHF_INJECTED)
+	upDown = "up" if flagUp else "down"
+	se = "ext" if flagExtended else ""
+	si = "inj" if flagInjected else ""
+	mylog.mylog(f"{upDown} {kbd.vkCode},{kbd.scanCode} {se} {si}")
 	if keyUpCallback and kbd.flags&LLKHF_UP:
 		if not keyUpCallback(kbd.vkCode,kbd.scanCode,bool(kbd.flags&LLKHF_EXTENDED),bool(kbd.flags&LLKHF_INJECTED)):
 			return 1

@@ -7,6 +7,7 @@
 
 """Keyboard support"""
 
+from mylog import mylog
 import ctypes
 import sys
 import time
@@ -128,12 +129,14 @@ def internal_keyDownEvent(vkCode,scanCode,extended,injected):
 		global lastNVDAModifier, lastNVDAModifierReleaseTime, bypassNVDAModifier, passKeyThroughCount, lastPassThroughKeyDown, currentModifiers, keyCounter, stickyNVDAModifier, stickyNVDAModifierLocked
 		# Injected keys should be ignored in some cases.
 		if injected and (ignoreInjected or not config.conf['keyboard']['handleInjectedKeys']):
+			mylog("Ignoring injected! ignoreInjected={ignoreInjected}")
 			return True
 
 		keyCode = (vkCode, extended)
 
 		if passKeyThroughCount >= 0:
 			# We're passing keys through.
+			mylog("Ignoring pass through!")
 			if lastPassThroughKeyDown != keyCode:
 				# Increment the pass key through count.
 				# We only do this if this isn't a repeat of the previous key down, as we don't receive key ups for repeated key downs.
@@ -144,6 +147,7 @@ def internal_keyDownEvent(vkCode,scanCode,extended,injected):
 		keyCounter += 1
 		stickyKeysFlags = winUser.getSystemStickyKeys().dwFlags
 		if stickyNVDAModifier and not stickyKeysFlags & winUser.SKF_STICKYKEYSON:
+			mylog("Sticky!")
 			# Sticky keys has been disabled,
 			# so clear the sticky NVDA modifier.
 			currentModifiers.discard(stickyNVDAModifier)
@@ -152,11 +156,13 @@ def internal_keyDownEvent(vkCode,scanCode,extended,injected):
 		gesture = KeyboardInputGesture(currentModifiers, vkCode, scanCode, extended)
 		if not (stickyKeysFlags & winUser.SKF_STICKYKEYSON) and (bypassNVDAModifier or (keyCode == lastNVDAModifier and lastNVDAModifierReleaseTime and time.time() - lastNVDAModifierReleaseTime < 0.5)):
 			# The user wants the key to serve its normal function instead of acting as an NVDA modifier key.
+			mylog("Non-sticky!")
 			# There may be key repeats, so ensure we do this until they stop.
 			bypassNVDAModifier = True
 			gesture.isNVDAModifierKey = False
 		lastNVDAModifierReleaseTime = None
 		if gesture.isNVDAModifierKey:
+			mylog("NVDA modifier!")
 			lastNVDAModifier = keyCode
 			if stickyKeysFlags & winUser.SKF_STICKYKEYSON:
 				if keyCode == stickyNVDAModifier:
@@ -186,10 +192,13 @@ def internal_keyDownEvent(vkCode,scanCode,extended,injected):
 			# Another key was pressed after the last NVDA modifier key, so it should not be passed through on the next press.
 			lastNVDAModifier = None
 		if gesture.isModifier:
+			mylog("Modifier!")
 			if gesture.speechEffectWhenExecuted in (gesture.SPEECHEFFECT_PAUSE, gesture.SPEECHEFFECT_RESUME) and keyCode in currentModifiers:
 				# Ignore key repeats for the pause speech key to avoid speech stuttering as it continually pauses and resumes.
 				return True
 			currentModifiers.add(keyCode)
+			s = ",".join(map(str, currentModifiers))
+			mylog(f"modifiers={s}")
 		elif stickyNVDAModifier and not stickyNVDAModifierLocked:
 			# A non-modifier was pressed, so unlatch the NVDA modifier.
 			currentModifiers.discard(stickyNVDAModifier)
@@ -244,11 +253,13 @@ def internal_keyUpEvent(vkCode,scanCode,extended,injected):
 		global lastNVDAModifier, lastNVDAModifierReleaseTime, bypassNVDAModifier, passKeyThroughCount, lastPassThroughKeyDown, currentModifiers
 		# Injected keys should be ignored in some cases.
 		if injected and (ignoreInjected or not config.conf['keyboard']['handleInjectedKeys']):
+			mylog("Up Ignore injected! ignoreInjected={ignoreInjected}")
 			return True
 
 		keyCode = (vkCode, extended)
 
 		if passKeyThroughCount >= 1:
+			mylog("Up ignore pass through")
 			if lastPassThroughKeyDown == keyCode:
 				# This key has been released.
 				lastPassThroughKeyDown = None
@@ -258,6 +269,7 @@ def internal_keyUpEvent(vkCode,scanCode,extended,injected):
 			return True
 
 		if lastNVDAModifier and keyCode == lastNVDAModifier:
+			mylog("Up NVDA modifier")
 			# The last pressed NVDA modifier key is being released and there were no key presses in between.
 			# The user may want to press it again quickly to pass it through.
 			lastNVDAModifierReleaseTime = time.time()
@@ -266,6 +278,9 @@ def internal_keyUpEvent(vkCode,scanCode,extended,injected):
 
 		if keyCode != stickyNVDAModifier:
 			currentModifiers.discard(keyCode)
+			s = ",".join(map(str, currentModifiers))
+			mylog(f"modifiers={s}")
+
 
 		# help inputCore  manage its sayAll state for keyboard modifiers -- inputCore itself has no concept of key releases
 		if not currentModifiers:
