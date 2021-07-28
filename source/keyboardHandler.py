@@ -8,6 +8,7 @@
 """Keyboard support"""
 
 from mylog import mylog
+import traceback
 import ctypes
 import sys
 import time
@@ -69,8 +70,11 @@ def ignoreInjection():
 	"""Context manager that allows ignoring injected keys temporarily by using a with statement."""
 	global ignoreInjected
 	with _ignoreInjectionLock:
+		mylog("Setting ignore injected = true!")
+		mylog('\n'.join(traceback.format_stack()))
 		ignoreInjected=True
 		yield
+		mylog("Setting ignore injected = false!")
 		ignoreInjected=False
 
 def passNextKeyThrough():
