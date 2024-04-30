@@ -351,7 +351,24 @@ class EditTextInfo(textInfos.offsets.OffsetsTextInfo):
 		watchdog.cancellableSendMessage(self.obj.windowHandle,winUser.EM_SCROLLCARET,0,0)
 
 	def _getCaretOffset(self):
-		return self._getSelectionOffsets()[0]
+		if self.obj.editAPIVersion>=1:
+			return self._getSelectionOffsets()[0]
+		else:
+			startOffset,endOffset = self._getSelectionOffsets()
+			if startOffset == endOffset:
+				return startOffset
+			# Selection is present; temporarily collapsing selection to the caret in order to find out where is it:
+			watchdog.cancellableSendMessage(self.obj.windowHandle, winUser.EM_SETSEL, -1, 0)
+			startOffset2,endOffset2 = self._getSelectionOffsets()
+			if startOffset == startOffset2:
+				anchorOffset, caretOffset = endOffset, startOffset
+			elif endOffset == endOffset2:
+				anchorOffset, caretOffset = startOffset, endOffset
+			else:
+				raise RuntimeError("Invalid selection state: {startOffset=} {endOffset=} {startOffset2=} {endOffset2=}")
+			# Restoring original selection and hope no one noticed:
+			watchdog.cancellableSendMessage(self.obj.windowHandle, winUser.EM_SETSEL, anchorOffset,caretOffset)
+			return caretOffset
 
 	def _setCaretOffset(self,offset):
 		return self._setSelectionOffsets(offset,offset)
