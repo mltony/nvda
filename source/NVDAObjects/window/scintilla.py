@@ -225,23 +225,46 @@ class ScintillaTextInfo(textInfos.offsets.OffsetsTextInfo):
 				winKernel.PAGE_READWRITE,
 			)
 			try:
-				winKernel.writeProcessMemory(
+				bytesWritten = ctypes.c_size_t()
+				if not winKernel.writeProcessMemory(
 					processHandle,
 					internalTextRange,
 					ctypes.byref(textRange),
 					ctypes.sizeof(textRange),
-					None,
-				)
+					ctypes.byref(bytesWritten),
+				):
+					raise ctypes.WinError()
+				if bytesWritten.value != ctypes.sizeof(textRange):
+					raise RuntimeError(
+						f"Failed to write complete text range structure: "
+						f"{bytesWritten.value}/{ctypes.sizeof(textRange)} bytes",
+					)
 				numBytes = watchdog.cancellableSendMessage(
 					self.obj.windowHandle,
 					SCI_GETTEXTRANGE,
 					0,
 					internalTextRange,
 				)
+				if numBytes < 0 or numBytes >= bufLen:
+					raise RuntimeError(
+						f"Scintilla returned invalid text range length {numBytes} for buffer length {bufLen}",
+					)
 			finally:
 				winKernel.virtualFreeEx(processHandle, internalTextRange, 0, winKernel.MEM_RELEASE)
 			buf = ctypes.create_string_buffer(bufLen)
-			winKernel.readProcessMemory(processHandle, internalBuf, buf, bufLen, None)
+			bytesRead = ctypes.c_size_t()
+			if not winKernel.readProcessMemory(
+				processHandle,
+				internalBuf,
+				buf,
+				bufLen,
+				ctypes.byref(bytesRead),
+			):
+				raise ctypes.WinError()
+			if bytesRead.value != bufLen:
+				raise RuntimeError(
+					f"Failed to read complete Scintilla buffer: {bytesRead.value}/{bufLen} bytes",
+				)
 		finally:
 			winKernel.virtualFreeEx(processHandle, internalBuf, 0, winKernel.MEM_RELEASE)
 		return textUtils.getTextFromRawBytes(

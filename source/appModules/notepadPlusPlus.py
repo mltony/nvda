@@ -39,23 +39,31 @@ class ScintillaTextInfoNpp83(ScintillaBase.ScintillaTextInfo):
 		]
 
 
+def _isNpp83OrLater(productVersion):
+	try:
+		appVerMajor, appVerMinor, *appVerTail = productVersion.split(".")
+		majorVersion = int(appVerMajor)
+		# Notepad++ may report versions in a compact form (e.g. 8.21 for 8.2.1),
+		# so with only two components use the first minor digit as the true minor version.
+		if appVerTail:
+			minorVersion = int(appVerMinor)
+		else:
+			minorVersion = int(appVerMinor[0])
+	except (ValueError, IndexError):
+		return False
+	return (majorVersion, minorVersion) >= (8, 3)
+
+
 class NppEdit(ScintillaBase.Scintilla):
 	name = None  # The name of the editor is not useful.
 
 	def _get_TextInfo(self):
-		if self.appModule.is64BitProcess:
-			appVerMajor, appVerMinor, *__ = self.appModule.productVersion.split(".")
-			# When retrieving the version, Notepad++ concatenates
-			# minor, patch, build in major.minor.patch.build to the form of major.minor
-			# https://github.com/notepad-plus-plus/npp-usermanual/blob/master/content/docs/plugin-communication.md#nppm_getnppversion
-			# e.g. '8.3' for '8.3', '8.21' for '8.2.1' and '8.192' for '8.1.9.2'.
-			# Therefore, only use the first digit of the minor version to match against version 8.3 or later.
-			if int(appVerMajor) >= 8 and int(appVerMinor[0]) >= 3:
-				return ScintillaTextInfoNpp83
+		if self.appModule.is64BitProcess and _isNpp83OrLater(self.appModule.productVersion):
+			return ScintillaTextInfoNpp83
 		return super().TextInfo
 
 
 class AppModule(appModuleHandler.AppModule):
 	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
-		if obj.windowClassName == "Scintilla" and obj.windowControlID == 0:
+		if obj.windowClassName == "Scintilla":
 			clsList.insert(0, NppEdit)
